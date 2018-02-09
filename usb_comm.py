@@ -131,20 +131,21 @@ class PSoC_USB(object):
             return None
         try:
             usb_input = self.device.read(endpoint, num_usb_bytes, timeout)  # TODO fix this
-            print(usb_input)
+            # print(usb_input)
         except Exception as error:
             logging.error("Failed data read")
             logging.error("No IN ENDPOINT: %s", error)
             return None
         if encoding == 'uint16':
-            print("Not a confirmed encoding data type")
-            num_elements = len(usb_input) / 2
-            return struct.unpack('>'+'H'*num_elements, usb_input)
+            # print("Not a confirmed encoding data type")
+            num_elements = int(len(usb_input) / 2)
+            return struct.unpack('<'+'H'*num_elements, usb_input)
             # return convert_uint8_uint16(usb_input)
         elif encoding == "float32":
             if (len(usb_input) % 4) == 0:
                 # return struct.iter_unpack('f', usb_input)
-                return struct.unpack('>ffffff', usb_input)
+                num_elements = int(len(usb_input) / 4)
+                return struct.unpack('>'+'f'*num_elements, usb_input)
             else:
                 print("Error in reading")
         elif encoding == 'string':
@@ -158,7 +159,7 @@ class PSoC_USB(object):
             logging.debug("reading all data")
             data_packet = []
             for i in range(12):
-                data_packet.extend(self.usb_read_data(num_usb_bytes=48, encoding="uint6"))
+                data_packet.extend(self.usb_read_data(num_usb_bytes=48, encoding="uint16"))
 
             return data_packet
         except Exception as error:

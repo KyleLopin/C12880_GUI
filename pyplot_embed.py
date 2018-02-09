@@ -3,6 +3,7 @@
 """ Embedded matplotlib plot in a tkinter frame """
 
 #standard libraries
+import logging
 import tkinter as tk
 
 # installed libraries
@@ -52,16 +53,24 @@ class SpectroPlotter(tk.Frame):
         self.axis.set_ylabel('counts')
         self.lines = None
 
-    def update_counts_data(self, counts):
-        while max(counts) > COUNT_SCALE[self.scale_index]:
+    def update_data(self, new_count_data=None):
+        logging.debug("updating data")
+        if new_count_data:
+            self.data.update_data(new_count_data)
+        else:
+            self.data.set_data_type()
+        display_data = self.data.current_data
+
+        while max(display_data) > COUNT_SCALE[self.scale_index]:
             self.scale_index += 1
             self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])
-        while (self.scale_index >= 1) and (max(counts) < COUNT_SCALE[self.scale_index-1]):
+        while (self.scale_index >= 1) and (max(display_data) < COUNT_SCALE[self.scale_index-1]):
             self.scale_index -= 1
             self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])
         if self.lines:
-            self.lines.set_ydata(counts)
+            self.lines.set_ydata(display_data)
         else:
-            self.lines, = self.axis.plot(WAVELENGTHS, counts)
+            self.lines, = self.axis.plot(WAVELENGTHS, display_data)
         self.canvas.draw()
-        self.save_data(counts)
+
+

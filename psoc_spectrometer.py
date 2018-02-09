@@ -43,6 +43,7 @@ class BaseSpectrometer(object):
 class C12880(BaseSpectrometer):
     def __init__(self, master: main_gui.SpectrometerGUI):
         BaseSpectrometer.__init__(self)
+        self.master = master
         self.reading = None
         self.laser_on = False
         self.laser_power = tk.StringVar()
@@ -74,6 +75,9 @@ class C12880(BaseSpectrometer):
         self.usb.usb_write("C12880|READ_SINGLE")
 
         data = self.usb.read_all_data()
+        print(data)
+        if data:
+            self.master.update_graph(data)
 
     def LED_toggle(self):
         print("Led power: ", self.led_on)
@@ -83,8 +87,10 @@ class C12880(BaseSpectrometer):
             self.led_on = False
         elif not self.led_on:
             logging.info("turn led on with power: {0}".format(self.led_power.get()))
-            self.usb.usb_write("LED|ON|{0}".format(self.led_power_options.index(self.led_power.get())))
+            new_power_level = self.led_power_options.index(self.led_power.get())
+            self.usb.usb_write("LED|ON|{0}".format(new_power_level))
             self.led_on = True
+            self.led_power_set = new_power_level
 
     def change_led_power(self):
         logging.debug("changing led power to: {0}".format(self.led_power.get()))

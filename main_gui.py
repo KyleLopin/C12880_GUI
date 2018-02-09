@@ -55,6 +55,15 @@ class SpectrometerGUI(tk.Tk):
         self.status_frame = StatusFrame(self, self.device)
         self.status_frame.pack(side='top', fill=tk.X)
 
+    def update_graph(self, data: list):
+        """
+        Allow user to call the master class to update the graph for any widget that does not
+        have direct access to the graph
+
+        :param data:  data to display on y-axis of graph
+        """
+        self.graph.update_data(data)
+
 
 BUTTON_PADY = 7
 
