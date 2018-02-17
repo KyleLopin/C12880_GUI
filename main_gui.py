@@ -87,8 +87,9 @@ class ButtonFrame(tk.Frame):
         # make all the buttons and parameters
         tk.Label(self, text="Integration time (ms):").pack(side='top', pady=BUTTON_PADY)
         self.integration_time_var = tk.IntVar()
-        tk.Spinbox(self, from_=25, to=1000,
+        tk.Spinbox(self, from_=1, to=1000,
                    textvariable=self.integration_time_var).pack(side='top', pady=BUTTON_PADY)
+        self.integration_time_var.set(40)
 
         # make LED control widgets
         tk.Label(self, text="LED power (mA):").pack(side='top', pady=BUTTON_PADY)
@@ -101,6 +102,11 @@ class ButtonFrame(tk.Frame):
         self.LED_button = tk.Button(self, text="Turn LED On", command=self.LED_toggle)
         self.LED_button.pack(side='top', pady=BUTTON_PADY)
 
+        # make a check box for if the LED should be flashed
+        self.use_led_flash = tk.IntVar()
+        self.flash_led_button = tk.Checkbutton(self, text="Use flash", variable=self.use_led_flash)
+        self.flash_led_button.pack(side="top", pady=BUTTON_PADY)
+
         # make Laser control widgets: not DRY
         tk.Label(self, text="Laser power (mA):").pack(side='top', pady=BUTTON_PADY)
         self.laser_power_options = self.device.laser_power_options
@@ -112,15 +118,26 @@ class ButtonFrame(tk.Frame):
         self.laser_button = tk.Button(self, text="Turn Laser On", command=self.laser_toggle)
         self.laser_button.pack(side='top', pady=BUTTON_PADY)
 
+        # make a check box for if the LED should be flashed
+        self.use_laser_flash = tk.IntVar()
+        self.flash_laser_button = tk.Checkbutton(self, text="Use flash", variable=self.use_laser_flash)
+        self.flash_laser_button.pack(side="top", pady=BUTTON_PADY)
+
         # make the run button
         self.read_button = tk.Button(self, text="Read", command=self.read_once)
         self.read_button.pack(side="top", pady=BUTTON_PADY)
+
+        # self.flush_button = tk.Button(self, text="flush", command=self.device.usb.flush)
+        # self.flush_button.pack(side="top", pady=BUTTON_PADY)
 
         # button to save the data, this will open a toplevel with the data printed out, and an option to save to file
         tk.Button(self, text="Save Data", command=self.save_data).pack(side="top", pady=BUTTON_PADY)
 
     def read_once(self):
-        self.device.read_once(self.integration_time_var.get())
+        self.read_button.config(state=tk.DISABLED)
+        self.device.read_once(self.integration_time_var.get(), self.use_led_flash.get(), self.use_laser_flash.get())
+
+        self.read_button.config(state=tk.ACTIVE)
 
     def LED_toggle(self):
         # led_power_index = self.LED_power_options.index(self)

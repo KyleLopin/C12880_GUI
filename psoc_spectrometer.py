@@ -11,6 +11,7 @@ import tkinter as tk
 # local files
 import main_gui  # for type hinting
 import usb_comm
+# import usb_arduino_hack as usb_comm
 
 __author__ = 'Kyle Vitautas Lopin'
 
@@ -38,6 +39,7 @@ class BaseSpectrometer(object):
 
         self.usb = usb_comm.PSoC_USB(self, self.data_queue, self.data_acquired_event,
                                      self.termination_flag)
+        # self.usb = usb_comm.PSoC_USB(self)
 
 
 class C12880(BaseSpectrometer):
@@ -54,25 +56,26 @@ class C12880(BaseSpectrometer):
         self.led_power_set = 0
         self.led_power_options = LED_POWER_OPTIONS
 
-        self.integration_time = 25
+        self.integration_time = 40
         self.init_C12880()
 
     def init_C12880(self):
         self.set_integration_time(self.integration_time)
 
     def set_integration_time(self, time):
-        if self.integration_time < 25 or self.integration_time > 1000:
+        if self.integration_time < 1 or self.integration_time > 131:
             logging.error("Integration time out of bounds: {0}".format(time))
         else:
-            self.usb.usb_write("C12880|INEGRATION|{0}".format(str(time).zfill(4)))
+            self.usb.usb_write("C12880|INTEGRATION|{0}".format(str(time).zfill(3)))
             self.integration_time = time
 
-    def read_once(self, integration_time_set):
-        print(self.integration_time)
+    def read_once(self, integration_time_set, led_flash, laser_flash):
+        logging.info("reading with integration time: {0}".format(integration_time_set))
+        logging.info("reading with led flash: {0} and laser flash".format(led_flash, laser_flash))
         if integration_time_set != self.integration_time:
             self.set_integration_time(integration_time_set)
 
-        self.usb.usb_write("C12880|READ_SINGLE")
+        self.usb.usb_write("C12880|READ_SINGLE|{0}|{1}".format(led_flash, laser_flash))
 
         data = self.usb.read_all_data()
         print(data)

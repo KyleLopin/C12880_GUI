@@ -3,12 +3,16 @@
 """ Classes to communication with a spectrophotometer"""
 
 # standard libraries
+from enum import Enum
 import logging
 import queue
 import random
 import struct
+import sys
+import time
 import threading
 # installed libraries
+import serial
 import usb
 import usb.core
 import usb.util
@@ -24,7 +28,19 @@ USB_DATA_BYTE_SIZE = 40
 IN_ENDPOINT = 0x81
 OUT_ENDPOINT = 0x02
 
+# Serial communication settings
+BAUDRATE = 115200
+STOPBITS = serial.STOPBITS_ONE
+PARITY = serial.PARITY_NONE
+BYTESIZE = serial.EIGHTBITS
+
 __author__ = 'Kyle Vitautas Lopin'
+
+
+class DeviceTypes(Enum):
+    usb = "USB"
+    serial = "Serial"
+    none = None
 
 
 class PSoC_USB(object):
@@ -32,10 +48,15 @@ class PSoC_USB(object):
                  termination_flag: bool,
                  vendor_id=0x04B4, product_id=0x8051):
         self.master_device = master
+        self.usb_device_found = False
         self.found = False
         self.connected = False
         self.spectrometer = None
         self.device = self.connect_usb(vendor_id, product_id)
+        if not self.usb_device_found:
+            logging.info("No USB device find, looking for serial")
+            self.device = self.connect_serial()
+
         self.connection_test()
         # data_processing_function([1])
         # make an extra thread to poll the usb as this thread will hang on the timeouts of the usb
@@ -59,12 +80,14 @@ class PSoC_USB(object):
         :return: USB device that can use the pyUSB API if found, else returns None if not found
         """
         device = usb.core.find(idVendor=vendor_id, idProduct=product_id)
+        logging.info("device: {0}".format(device))
         if device is None:
             logging.info("Device not found")
             return None
         else:  # device was found
             logging.info("PSoC found")
             self.found = True
+            self.usb_device_found = True
 
         # set the active configuration. the pyUSB module deals with the details
         device.set_configuration()
@@ -96,6 +119,35 @@ class PSoC_USB(object):
         if received_message == AS7262_ID_MESSAGE:
             self.spectrometer = "AS7262"
             logging.info("AS7262 attached")
+
+    def connect_serial(self):
+        available_ports = find_available_ports()
+        logging.info("serial ports found: {0}".format(available_ports))
+        for port in available_ports:
+            try:
+                logging.info("writing to port: {0}".format(port.port))
+                device = serial.Serial(port.port, baudrate=BAUDRATE, stopbits=STOPBITS,
+                                       parity=PARITY, bytesize=BYTESIZE, timeout=1)
+                device.flushInput()
+                device.flushOutput()
+
+                # device.write(b"ID-")
+                # time.sleep(0.5)
+                # from_device = device.read_all()
+                # time.sleep(0.5)
+                from_device = device.read_all()
+                logging.info("From the device: {0}".format(from_device))
+                if from_device == PSOC_ID_MESSAGE:
+                    logging.info("Found serial device")
+                    self.found = True
+                    self.device_type = DeviceTypes.serial
+                    self.connected = True
+                    return device
+
+            except Exception as exception:
+                # not the correct device
+                logging.info("No device at port: {0}".format(port))
+                logging.info("Exception: {0}".format(exception))
 
     def usb_write(self, message, endpoint=OUT_ENDPOINT):
         if not endpoint:
@@ -214,3 +266,29 @@ class ThreadedUSBDataCollector(threading.Thread):
 
     def single_run(self):
         pass
+
+
+def find_available_ports():
+
+    # taken from http://stackoverflow.com/questions/12090503/listing-available-com-ports-with-python
+
+    if sys.platform.startswith('win'):
+        ports = ['COM%s' % (i+1) for i in range(32)]
+    elif sys.platform.startswith('linux') or sys.platform.startswith('cygwin'):
+        ports = glob.glob('/dev/tty[A-Za-z]*')
+    elif sys.platform.startswith('darwin'):
+        ports = glob.glob('/dev/tty.*')
+    else:
+        raise EnvironmentError('Unsupported platform')
+
+    available_ports = []
+    for port in ports:
+        try:
+            device = serial.Serial(port=port, write_timeout=0.5,
+                                   inter_byte_timeout=1, baudrate=115200,
+                                   parity=serial.PARITY_EVEN, stopbits=1)
+            device.close()
+            available_ports.append(device)
+        except (OSError, serial.SerialException):
+            pass
+    return available_ports
