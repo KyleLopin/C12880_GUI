@@ -16,6 +16,16 @@ import data_class
 
 __author__ = 'Kyle Vitautas Lopin'
 
+C12880_SERIAL = "17D00042"
+pixel = range(1, 289)
+print(pixel)
+A_0 = 3.056675765e+2
+B_1 = 2.718285424
+B_2 = -1.550742501e-3
+B_3 = -3.975858137e-6
+B_4 = -5.463349212e-9
+B_5 = -2.634533143e-11
+
 COUNT_SCALE = [10, 20, 50, 100, 200, 500, 1000, 5000, 10000, 50000, 100000]
 LOWEST_WAVELENGTH = 340
 HIGHEST_WAVELENGTH = 850
@@ -23,7 +33,11 @@ NUM_PIXELS = 288
 WAVELENGTH_INCREMENT = (HIGHEST_WAVELENGTH - LOWEST_WAVELENGTH) / NUM_PIXELS
 WAVELENGTHS = [LOWEST_WAVELENGTH + x*WAVELENGTH_INCREMENT for x in range(NUM_PIXELS)]
 print(WAVELENGTHS)
+print([x for x in range(1, 289)])
+WAVELENGTHS = [A_0+B_1*x+B_2*x**2+B_3*x**3+B_4*x**4+B_5*x**5 for x in range(1, 289)]
+print(WAVELENGTHS)
 print(len(WAVELENGTHS))
+
 
 class SpectroPlotter(tk.Frame):
     def __init__(self, parent, _size=(6, 3)):
@@ -45,7 +59,7 @@ class SpectroPlotter(tk.Frame):
         self.canvas._tkcanvas.pack(side='top', fill=tk.BOTH, expand=True)
         self.canvas.draw()
 
-        self.axis.set_xlim([400, 700])
+        self.axis.set_xlim([300, 850])
         self.axis.set_xlabel("wavelength (nm)")
 
         self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])

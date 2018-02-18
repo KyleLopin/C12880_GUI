@@ -19,7 +19,14 @@ __author__ = 'Kyle Vitautas Lopin'
 C12880_CLK_SPEED = 500000.
 C12880_CLK_PERIOD = 1. / C12880_CLK_SPEED
 
-LED_POWER_OPTIONS = ["100 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
+# LED_POWER_OPTIONS = ["100 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
+values = [80*x/31 for x in range(0, 32)]
+print(values)
+LED_POWER_OPTIONS = ["80 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
+values.reverse()
+LED_POWER_OPTIONS = ["{:.0f} mA".format(x) for x in values]
+print("LED Options")
+print(LED_POWER_OPTIONS)
 
 
 class BaseSpectrometer(object):
@@ -79,6 +86,7 @@ class C12880(BaseSpectrometer):
 
         data = self.usb.read_all_data()
         print(data)
+        print("integration time: {0}".format(integration_time_set))
         if data:
             self.master.update_graph(data)
 

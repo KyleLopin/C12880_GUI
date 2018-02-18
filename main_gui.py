@@ -97,7 +97,7 @@ class ButtonFrame(tk.Frame):
 
         tk.OptionMenu(self, self.device.led_power, *self.LED_power_options,
                       command=self.LED_set_power).pack(side='top', pady=BUTTON_PADY)
-        self.device.led_power.set("100 mA")
+        self.device.led_power.set("80 mA")
 
         self.LED_button = tk.Button(self, text="Turn LED On", command=self.LED_toggle)
         self.LED_button.pack(side='top', pady=BUTTON_PADY)
@@ -113,7 +113,7 @@ class ButtonFrame(tk.Frame):
 
         tk.OptionMenu(self, self.device.laser_power, *self.laser_power_options,
                       command=self.laser_set_power).pack(side='top', pady=BUTTON_PADY)
-        self.device.laser_power.set("100 mA")
+        self.device.laser_power.set("80 mA")
 
         self.laser_button = tk.Button(self, text="Turn Laser On", command=self.laser_toggle)
         self.laser_button.pack(side='top', pady=BUTTON_PADY)
@@ -148,8 +148,8 @@ class ButtonFrame(tk.Frame):
             self.LED_button.config(text="Turn LED On")
 
     def LED_set_power(self, *args):
-        if self.device.led_on:
-            self.device.change_led_power()
+        # if self.device.led_on:
+        self.device.change_led_power()
 
     def laser_toggle(self):
         # led_power_index = self.LED_power_options.index(self)
@@ -160,8 +160,8 @@ class ButtonFrame(tk.Frame):
             self.laser_button.config(text="Turn Laser On")
 
     def laser_set_power(self, *args):
-        if self.device.laser_on:
-            self.device.change_laser_power()
+        # if self.device.laser_on:
+        self.device.change_laser_power()
 
     def save_data(self):
         """
