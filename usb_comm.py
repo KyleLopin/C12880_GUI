@@ -22,7 +22,7 @@ import usb.backend
 import psoc_spectrometer  # for type hinting
 
 PSOC_ID_MESSAGE = b"PSoC-Spectrometer"
-AS7262_ID_MESSAGE = b"C12880"
+C12880_ID_MESSAGE = b"C12880"
 
 USB_DATA_BYTE_SIZE = 40
 IN_ENDPOINT = 0x81
@@ -116,9 +116,9 @@ class PSoC_USB(object):
         self.usb_write('ID-Spectrometer')  # device will return string of the spectrometer it is connected to
         received_message = self.usb_read_data(encoding='string')
         logging.debug('Received identifying message: {0}'.format(received_message))
-        if received_message == AS7262_ID_MESSAGE:
-            self.spectrometer = "AS7262"
-            logging.info("AS7262 attached")
+        if received_message == C12880_ID_MESSAGE:
+            self.spectrometer = "C12880"
+            logging.info("C12880 attached")
 
     def connect_serial(self):
         available_ports = find_available_ports()

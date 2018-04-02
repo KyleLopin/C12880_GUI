@@ -133,6 +133,8 @@ class ButtonFrame(tk.Frame):
         # button to save the data, this will open a toplevel with the data printed out, and an option to save to file
         tk.Button(self, text="Save Data", command=self.save_data).pack(side="top", pady=BUTTON_PADY)
 
+        tk.Button(self, text="Log Error", command=self.debug_comment).pack(side="top", pady=BUTTON_PADY)
+
     def read_once(self):
         self.read_button.config(state=tk.DISABLED)
         self.device.read_once(self.integration_time_var.get(), self.use_led_flash.get(), self.use_laser_flash.get())
@@ -169,6 +171,31 @@ class ButtonFrame(tk.Frame):
         """
         logging.debug("save the data: ")
         self.graph.data.save_data()
+
+    def debug_comment(self):
+        error_message = GetMessage()
+        # print(error_message.get("1.0", 'end-1c'))
+
+
+def GetMessage():
+    toplevel = tk.Toplevel()
+    toplevel.geometry("300x300")
+    toplevel.title("Enter message")
+    tk.Label(toplevel, text="Enter message to put with log file:").pack(side='top')
+    message = tk.StringVar()
+    entry = tk.Text(toplevel, width=30, height=6, wrap=tk.WORD)
+    entry.pack(side='top')
+
+    tk.Button(toplevel, text="Save", command=lambda: save_message(entry, toplevel)).pack(side='top')
+
+
+def save_message(message, toplevel):
+
+    error_message = message.get(1.0, tk.END)
+    with open('log/C12880_state.log', 'a') as f:
+        f.write(error_message)
+    f.close()
+    toplevel.destroy()
 
 
 class StatusFrame(tk.Frame):

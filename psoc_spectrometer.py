@@ -3,8 +3,11 @@
 """ Classes to represent different color spectrometers, implimented so here: C12880"""
 
 # standard libraries
+import json
 import logging
+import os
 import queue
+import struct
 import threading
 import tkinter as tk
 
@@ -89,6 +92,35 @@ class C12880(BaseSpectrometer):
         print("integration time: {0}".format(integration_time_set))
         if data:
             self.master.update_graph(data)
+
+        self.get_C12880_state()
+
+    def get_C12880_state(self):
+        self.usb.usb_write("C12880|Debug")
+        data = self.usb.usb_read_data(24)
+        data = self.convert_C12880_debug_values(data)
+        data_struct = {}
+        data_struct['TRG'] = data[0]
+        data_struct['CLK'] = data[1]
+        data_struct['ST'] = data[2]
+        data_struct['ISR PWM'] = data[3]
+        data_struct['dma count'] = data[4]
+        data_struct['EoS status'] = data[5]
+
+        print(data_struct)
+        if not os.path.exists('log/'):
+            os.makedirs('log/')
+        with open('log/C12880_state.log', 'a') as f:
+            # f.write(data_struct)
+            json.dump(data_struct, f)
+            f.write('\n')
+        f.close()
+
+    @staticmethod
+    def convert_C12880_debug_values(data):
+
+
+        return struct.unpack('<HHHHHB', data)
 
     def LED_toggle(self):
         print("Led power: ", self.led_on)
