@@ -207,7 +207,7 @@ class PSoC_USB(object):
 
     def read_all_data(self):
         try:
-
+            self.usb_write("C12880|EXPORT_DATA")
             logging.debug("reading all data")
             data_packet = []
             for i in range(12):
