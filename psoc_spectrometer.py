@@ -88,10 +88,11 @@ class C12880(BaseSpectrometer):
             return "Failed sending read message"
 
         try:
-            time.sleep(integration_time_set/1000)  # TODO: make this an after function somehow
+            time.sleep(integration_time_set/1000+0.4)  # TODO: make this an after function somehow
             query_message = self.query_data_readiness()
             logging.info("query message: {0}".format(query_message))
-        except:
+        except Exception as expection:
+            logging.error(expection)
             return "Failed getting query message"
 
         if query_message == "NOT DONE ":
@@ -112,7 +113,8 @@ class C12880(BaseSpectrometer):
 
         try:
             self.get_C12880_state()
-        except:
+        except Exception as exception2:
+            logging.error(exception2)
             return "Error getting C12880 state"
         return "Successful read"
 
@@ -125,11 +127,12 @@ class C12880(BaseSpectrometer):
         self.usb.usb_write("C12880|READ_SINGLE|{0}|{1}".format(led_flash, laser_flash))
 
     def query_data_readiness(self):
-        self.us.usb_write("C12880|QUERY_RUN")
-        return self.usb.usb_read_data(num_usb_bytes=9)  # Query message is 9 chars long
+        self.usb.usb_write("C12880|QUERY_RUN")
+        return self.usb.usb_read_data(num_usb_bytes=9, encoding="string")  # Query message is 9 chars long
 
     def get_C12880_state(self):
         self.usb.usb_write("C12880|DEBUG")
+        time.sleep(0.2)
         data = self.usb.usb_read_data(11)
         print(data)
         data = self.convert_C12880_debug_values(data)
@@ -142,12 +145,21 @@ class C12880(BaseSpectrometer):
         data_struct['EoS status'] = data[5]
 
         print(data_struct)
-        if not os.path.exists('log/C12880_state.log'):
-            os.makedirs('log/C12880_state.log')
-        with open('log/C12880_state.log', 'a') as f:
-            # f.write(data_struct)
-            json.dump(data_struct, f)
-            f.write('\n')
+        if not os.path.exists('log/'):
+            os.makedirs('log/')
+
+        try:
+
+            with open('log/C12880_state.log', 'a') as f:
+                # f.write(data_struct)
+                json.dump(data_struct, f)
+                f.write("\nintegration time:{0}\n".format(self.integration_time))
+        except:
+            with open('log/C12880_state.log', 'w') as f:
+                # f.write(data_struct)
+                json.dump(data_struct, f)
+                f.write("\nintegration time:{0}\n".format(self.integration_time))
+
         f.close()
 
     @staticmethod
