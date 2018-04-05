@@ -137,8 +137,9 @@ class ButtonFrame(tk.Frame):
 
     def read_once(self):
         self.read_button.config(state=tk.DISABLED)
-        self.device.read_once(self.integration_time_var.get(), self.use_led_flash.get(), self.use_laser_flash.get())
 
+        read_message = self.device.read_once(self.integration_time_var.get(), self.use_led_flash.get(), self.use_laser_flash.get())
+        logging.info("Read message: {0}".format(read_message))
         self.read_button.config(state=tk.ACTIVE)
 
     def LED_toggle(self):

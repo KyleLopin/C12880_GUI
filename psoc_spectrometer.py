@@ -9,6 +9,7 @@ import os
 import queue
 import struct
 import threading
+import time
 import tkinter as tk
 
 # local files
@@ -80,6 +81,42 @@ class C12880(BaseSpectrometer):
             self.integration_time = time
 
     def read_once(self, integration_time_set, led_flash, laser_flash):
+
+        try:
+            self.send_read_message(integration_time_set, led_flash, laser_flash)
+        except:
+            return "Failed sending read message"
+
+        try:
+            time.sleep(integration_time_set/1000)  # TODO: make this an after function somehow
+            query_message = self.query_data_readiness()
+            logging.info("query message: {0}".format(query_message))
+        except:
+            return "Failed getting query message"
+
+        if query_message == "NOT DONE ":
+            return "Data still being read"
+        elif query_message == "NO DATA  ":
+            return "Error with the C12880 device"
+
+        try:
+            data = self.usb.read_all_data()
+
+
+            print(data)
+            print("integration time: {0}".format(integration_time_set))
+            if data:
+                self.master.update_graph(data)
+        except:
+            return "Problem getting data"
+
+        try:
+            self.get_C12880_state()
+        except:
+            return "Error getting C12880 state"
+        return "Successful read"
+
+    def send_read_message(self, integration_time_set, led_flash, laser_flash):
         logging.info("reading with integration time: {0}".format(integration_time_set))
         logging.info("reading with led flash: {0} and laser flash".format(led_flash, laser_flash))
         if integration_time_set != self.integration_time:
@@ -87,17 +124,14 @@ class C12880(BaseSpectrometer):
 
         self.usb.usb_write("C12880|READ_SINGLE|{0}|{1}".format(led_flash, laser_flash))
 
-        data = self.usb.read_all_data()
-        print(data)
-        print("integration time: {0}".format(integration_time_set))
-        if data:
-            self.master.update_graph(data)
-
-        self.get_C12880_state()
+    def query_data_readiness(self):
+        self.us.usb_write("C12880|QUERY_RUN")
+        return self.usb.usb_read_data(num_usb_bytes=9)  # Query message is 9 chars long
 
     def get_C12880_state(self):
-        self.usb.usb_write("C12880|Debug")
-        data = self.usb.usb_read_data(24)
+        self.usb.usb_write("C12880|DEBUG")
+        data = self.usb.usb_read_data(11)
+        print(data)
         data = self.convert_C12880_debug_values(data)
         data_struct = {}
         data_struct['TRG'] = data[0]
@@ -108,8 +142,8 @@ class C12880(BaseSpectrometer):
         data_struct['EoS status'] = data[5]
 
         print(data_struct)
-        if not os.path.exists('log/'):
-            os.makedirs('log/')
+        if not os.path.exists('log/C12880_state.log'):
+            os.makedirs('log/C12880_state.log')
         with open('log/C12880_state.log', 'a') as f:
             # f.write(data_struct)
             json.dump(data_struct, f)
