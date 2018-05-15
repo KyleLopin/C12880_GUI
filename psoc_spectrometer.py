@@ -24,13 +24,19 @@ C12880_CLK_SPEED = 500000.
 C12880_CLK_PERIOD = 1. / C12880_CLK_SPEED
 
 # LED_POWER_OPTIONS = ["100 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
-values = [80*x/31 for x in range(0, 32)]
+values = [100/2**x for x in range(0, 6)]
 print(values)
 LED_POWER_OPTIONS = ["80 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
 values.reverse()
 LED_POWER_OPTIONS = ["{:.0f} mA".format(x) for x in values]
 print("LED Options")
 print(LED_POWER_OPTIONS)
+
+
+class PSoC(object):
+    def __init__(self, master: main_gui.SpectrometerGUI):
+        self.spectrometer = C12880(master)
+        self.light_sources = [CAT4004("LED", max_power=100), CAT4004("Laser", max_power=100)]
 
 
 class BaseSpectrometer(object):
@@ -205,3 +211,19 @@ class C12880(BaseSpectrometer):
         if new_power_level != self.laser_power_set:
             self.usb.usb_write("LASER|POWER|{0}".format(new_power_level))
             self.laser_power_set = new_power_level
+
+
+class LightSource(object):
+    def __init__(self, name: str, power_var: tk.StringVar = None, power_options: list=None):
+        self.name = name
+        if power_var:
+            power_var = tk.StringVar()
+        self.power_var = power_var
+        self.power_options = power_options
+
+
+class CAT4004(LightSource):
+    def __init__(self, name:str, max_power: int = 100):
+        power_options = [max_power/2.**x for x in range(0, 6)]
+        LightSource.__init__(name, power_options=power_options)
+        self.power_var.set(self.power_options[0])
