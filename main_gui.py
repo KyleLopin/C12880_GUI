@@ -9,6 +9,7 @@ import logging
 import tkinter as tk
 # installed libraries
 # local files
+import frameworks
 import psoc_spectrometer
 import pyplot_embed
 
@@ -41,7 +42,8 @@ class SpectrometerGUI(tk.Tk):
         main_frame.pack(side='top', fill=tk.BOTH, expand=1)
 
         # attach the actual device and make an easier to use alias for the
-        self.device = psoc_spectrometer.C12880(self)
+        # self.device = psoc_spectrometer.C12880(self)
+        self.device = psoc_spectrometer.PSoC(self)
 
         # make the graph frame, the parent class is a tk.Frame
         self.graph = pyplot_embed.SpectroPlotter(main_frame, None)
@@ -83,7 +85,7 @@ class ButtonFrame(tk.Frame):
 
         self.master = parent
         self.graph = graph
-        self.device = device  # type: psoc_spectrometer.C12880
+        self.device = device  # type: psoc_spectrometer.PSoC
 
         # make all the buttons and parameters
         integration_frame = tk.Frame(self, bd=5, relief=tk.RIDGE)
@@ -97,39 +99,42 @@ class ButtonFrame(tk.Frame):
         # make LED control widgets
         lighting_frame = tk.Frame(self, bd=5, relief=tk.RIDGE)
         # ===============
+        buttons = {}
+        for light_source in self.device.light_sources:
+            buttons[light_source.name] = frameworks.LightButtons(lighting_frame, light_source).pack(side='top')
+        print(buttons)
 
-
-        tk.Label(lighting_frame, text="LED power (mA):").pack(side='top', pady=BUTTON_PADY)
-        self.LED_power_options = self.device.led_power_options
-
-        tk.OptionMenu(lighting_frame, self.device.led_power, *self.LED_power_options,
-                      command=self.LED_set_power).pack(side='top', pady=BUTTON_PADY)
-        self.device.led_power.set("100 mA")
-
-        self.LED_button = tk.Button(lighting_frame, text="Turn LED On", command=self.LED_toggle)
-        self.LED_button.pack(side='top', pady=BUTTON_PADY)
-
-        # make a check box for if the LED should be flashed
-        self.use_led_flash = tk.IntVar()
-        self.flash_led_button = tk.Checkbutton(lighting_frame, text="Use flash", variable=self.use_led_flash)
-        self.flash_led_button.pack(side="top", pady=BUTTON_PADY)
+        # tk.Label(lighting_frame, text="LED power (mA):").pack(side='top', pady=BUTTON_PADY)
+        # self.LED_power_options = self.device.led_power_options
+        #
+        # tk.OptionMenu(lighting_frame, self.device.led_power, *self.LED_power_options,
+        #               command=self.LED_set_power).pack(side='top', pady=BUTTON_PADY)
+        # self.device.led_power.set("100 mA")
+        #
+        # self.LED_button = tk.Button(lighting_frame, text="Turn LED On", command=self.LED_toggle)
+        # self.LED_button.pack(side='top', pady=BUTTON_PADY)
+        #
+        # # make a check box for if the LED should be flashed
+        # self.use_led_flash = tk.IntVar()
+        # self.flash_led_button = tk.Checkbutton(lighting_frame, text="Use flash", variable=self.use_led_flash)
+        # self.flash_led_button.pack(side="top", pady=BUTTON_PADY)
         # ===============
 
         # make Laser control widgets: not DRY
-        tk.Label(lighting_frame, text="Laser power (mA):").pack(side='top', pady=BUTTON_PADY)
-        self.laser_power_options = self.device.laser_power_options
-
-        tk.OptionMenu(lighting_frame, self.device.laser_power, *self.laser_power_options,
-                      command=self.laser_set_power).pack(side='top', pady=BUTTON_PADY)
-        self.device.laser_power.set("100 mA")
-
-        self.laser_button = tk.Button(lighting_frame, text="Turn Laser On", command=self.laser_toggle)
-        self.laser_button.pack(side='top', pady=BUTTON_PADY)
-
-        # make a check box for if the LED should be flashed
-        self.use_laser_flash = tk.IntVar()
-        self.flash_laser_button = tk.Checkbutton(lighting_frame, text="Use flash", variable=self.use_laser_flash)
-        self.flash_laser_button.pack(side="top", pady=BUTTON_PADY)
+        # tk.Label(lighting_frame, text="Laser power (mA):").pack(side='top', pady=BUTTON_PADY)
+        # self.laser_power_options = self.device.laser_power_options
+        #
+        # tk.OptionMenu(lighting_frame, self.device.laser_power, *self.laser_power_options,
+        #               command=self.laser_set_power).pack(side='top', pady=BUTTON_PADY)
+        # self.device.laser_power.set("100 mA")
+        #
+        # self.laser_button = tk.Button(lighting_frame, text="Turn Laser On", command=self.laser_toggle)
+        # self.laser_button.pack(side='top', pady=BUTTON_PADY)
+        #
+        # # make a check box for if the LED should be flashed
+        # self.use_laser_flash = tk.IntVar()
+        # self.flash_laser_button = tk.Checkbutton(lighting_frame, text="Use flash", variable=self.use_laser_flash)
+        # self.flash_laser_button.pack(side="top", pady=BUTTON_PADY)
 
         lighting_frame.pack(side='top', expand=True, fill=tk.X)
 
@@ -148,7 +153,7 @@ class ButtonFrame(tk.Frame):
     def read_once(self):
         self.read_button.config(state=tk.DISABLED)
 
-        read_message = self.device.read_once(self.integration_time_var.get(), self.use_led_flash.get(), self.use_laser_flash.get())
+        read_message = self.device.read_once(self.integration_time_var.get())
         logging.info("Read message: {0}".format(read_message))
         self.read_button.config(state=tk.ACTIVE)
 

@@ -35,8 +35,76 @@ print(LED_POWER_OPTIONS)
 
 class PSoC(object):
     def __init__(self, master: main_gui.SpectrometerGUI):
-        self.spectrometer = C12880(master)
-        self.light_sources = [CAT4004("LED", max_power=100), CAT4004("Laser", max_power=100)]
+        self.communication = USB()
+        self.usb = self.communication.usb  # alias to make it easier to write to
+
+        self.spectrometer = C12880(master, self.usb)
+        self.light_sources = [CAT4004(self.usb, "LED", max_power=100),
+                              CAT4004(self.usb, "Laser", max_power=100),
+                              PWMDimmer(self.usb, "Light 1", max_power=100, pwm_period=32, pwm_compare=32)]
+
+    def read_once(self, integration_time):
+        self.spectrometer.read_once(integration_time)
+
+    # def read_once(self, integration_time):
+    #     try:
+    #         self.send_read_message(integration_time)
+    #     except Exception as e:
+    #         logging.error(e)
+    #         return "Failed sending read message"
+    #
+    #     try:
+    #         time.sleep(integration_time/1000+0.4)  # TODO: make this an after function somehow
+    #         query_message = self.query_data_readiness()
+    #         logging.info("query message: {0}".format(query_message))
+    #     except Exception as expection:
+    #         logging.error(expection)
+    #         return "Failed getting query message"
+    #
+    #     if query_message == "NOT DONE ":
+    #         return "Data still being read"
+    #     elif query_message == "NO DATA  ":
+    #         return "Error with the C12880 device"
+    #
+    #     try:
+    #         data = self.usb.read_all_data()
+    #         print(data)
+    #         print("integration time: {0}".format(integration_time))
+    #         if data:
+    #             self.master.update_graph(data)
+    #     except:
+    #         return "Problem getting data"
+    #
+    #     try:
+    #         self.get_C12880_state()
+    #     except Exception as exception2:
+    #         logging.error(exception2)
+    #         return "Error getting C12880 state"
+    #     return "Successful read"
+
+    def send_read_message(self, integration_time_set):
+        logging.info("reading with integration time: {0}".format(integration_time_set))
+        if integration_time_set != self.integration_time:
+            self.set_integration_time(integration_time_set)
+
+class USB(object):
+    """ But the basic info all the Base PSoC Base color sensors / spectrometers should use """
+
+    def __init__(self):
+        self.OUT_ENDPOINT = 2
+        self.DATA_IN_ENDPOINT = 1
+        self.USB_INFO_BYTE_SIZE = 48
+        self.NUMBER_DATA_PACKETS = 12
+
+        # the data reading from the USB will be on a separate thread so that polling
+        # the USB will not make the program hang.
+        self.data_queue = queue.Queue()
+        self.data_acquired_event = threading.Event()
+        self.termination_flag = False  # flag to set when streaming data should be stopped
+
+        self.usb = usb_comm.PSoC_USB(self, self.data_queue, self.data_acquired_event,
+                                     self.termination_flag)
+        # self.usb = usb_comm.PSoC_USB(self)
 
 
 class BaseSpectrometer(object):
@@ -60,23 +128,17 @@ class BaseSpectrometer(object):
 
 
 class C12880(BaseSpectrometer):
-    def __init__(self, master: main_gui.SpectrometerGUI):
+    def __init__(self, master: main_gui.SpectrometerGUI, usb: USB):
         BaseSpectrometer.__init__(self)
         self.master = master
         self.reading = None
-        self.laser_on = False
-        self.laser_power = tk.StringVar()
-        self.laser_power_set = 0
-        self.laser_power_options = LED_POWER_OPTIONS  # no need to copy, its just for reference
-        self.led_on = False
-        self.led_power = tk.StringVar()
-        self.led_power_set = 0
-        self.led_power_options = LED_POWER_OPTIONS
+
+        self.usb = usb
 
         self.integration_time = 40
-        self.init_C12880()
+        self.init_c12880()
 
-    def init_C12880(self):
+    def init_c12880(self):
         self.set_integration_time(self.integration_time)
 
     def set_integration_time(self, time):
@@ -86,10 +148,9 @@ class C12880(BaseSpectrometer):
             self.usb.usb_write("C12880|INTEGRATION|{0}".format(str(time).zfill(3)))
             self.integration_time = time
 
-    def read_once(self, integration_time_set, led_flash, laser_flash):
-
+    def read_once(self, integration_time_set):
         try:
-            self.send_read_message(integration_time_set, led_flash, laser_flash)
+            self.send_read_message(integration_time_set)
         except:
             return "Failed sending read message"
 
@@ -108,8 +169,6 @@ class C12880(BaseSpectrometer):
 
         try:
             data = self.usb.read_all_data()
-
-
             print(data)
             print("integration time: {0}".format(integration_time_set))
             if data:
@@ -124,13 +183,12 @@ class C12880(BaseSpectrometer):
             return "Error getting C12880 state"
         return "Successful read"
 
-    def send_read_message(self, integration_time_set, led_flash, laser_flash):
+    def send_read_message(self, integration_time_set):
         logging.info("reading with integration time: {0}".format(integration_time_set))
-        logging.info("reading with led flash: {0} and laser flash".format(led_flash, laser_flash))
         if integration_time_set != self.integration_time:
             self.set_integration_time(integration_time_set)
 
-        self.usb.usb_write("C12880|READ_SINGLE|{0}|{1}".format(led_flash, laser_flash))
+        self.usb.usb_write("C12880|READ_SINGLE".format())
 
     def query_data_readiness(self):
         self.usb.usb_write("C12880|QUERY_RUN")
@@ -171,59 +229,123 @@ class C12880(BaseSpectrometer):
     @staticmethod
     def convert_C12880_debug_values(data):
 
-
         return struct.unpack('<HHHHHB', data)
 
-    def LED_toggle(self):
-        print("Led power: ", self.led_on)
-        if self.led_on:  # LED is on so turn it off
-            logging.info("turning off led")
-            self.usb.usb_write("LED|OFF")
-            self.led_on = False
-        elif not self.led_on:
-            logging.info("turn led on with power: {0}".format(self.led_power.get()))
-            new_power_level = self.led_power_options.index(self.led_power.get())
-            self.usb.usb_write("LED|ON|{0}".format(new_power_level))
-            self.led_on = True
-            self.led_power_set = new_power_level
-
-    def change_led_power(self):
-        logging.debug("changing led power to: {0}".format(self.led_power.get()))
-        new_power_level = self.led_power_options.index(self.led_power.get())
-        if new_power_level != self.led_power_set:
-            self.usb.usb_write("LED|POWER|{0}".format(new_power_level))
-            self.led_power_set = new_power_level
-
-    def laser_toggle(self):
-        print("Laser power: ", self.led_on)
-        if self.laser_on:  # Laser is on so turn it off
-            logging.info("turning off laser")
-            self.usb.usb_write("LASER|OFF")
-            self.laser_on = False
-        elif not self.laser_on:
-            logging.info("turn laser on with power: {0}".format(self.laser_power.get()))
-            self.usb.usb_write("LASER|ON|{0}".format(self.laser_power_options.index(self.laser_power.get())))
-            self.laser_on = True
-
-    def change_laser_power(self):
-        logging.debug("changing laser power to: {0}".format(self.laser_power.get()))
-        new_power_level = self.laser_power_options.index(self.laser_power.get())
-        if new_power_level != self.laser_power_set:
-            self.usb.usb_write("LASER|POWER|{0}".format(new_power_level))
-            self.laser_power_set = new_power_level
+    # def LED_toggle(self):
+    #     print("Led power: ", self.led_on)
+    #     if self.led_on:  # LED is on so turn it off
+    #         logging.info("turning off led")
+    #         self.usb.usb_write("LED|OFF")
+    #         self.led_on = False
+    #     elif not self.led_on:
+    #         logging.info("turn led on with power: {0}".format(self.led_power.get()))
+    #         new_power_level = self.led_power_options.index(self.led_power.get())
+    #         self.usb.usb_write("LED|ON|{0}".format(new_power_level))
+    #         self.led_on = True
+    #         self.led_power_set = new_power_level
+    #
+    # def change_led_power(self):
+    #     logging.debug("changing led power to: {0}".format(self.led_power.get()))
+    #     new_power_level = self.led_power_options.index(self.led_power.get())
+    #     if new_power_level != self.led_power_set:
+    #         self.usb.usb_write("LED|POWER|{0}".format(new_power_level))
+    #         self.led_power_set = new_power_level
+    #
+    # def laser_toggle(self):
+    #     print("Laser power: ", self.led_on)
+    #     if self.laser_on:  # Laser is on so turn it off
+    #         logging.info("turning off laser")
+    #         self.usb.usb_write("LASER|OFF")
+    #         self.laser_on = False
+    #     elif not self.laser_on:
+    #         logging.info("turn laser on with power: {0}".format(self.laser_power.get()))
+    #         self.usb.usb_write("LASER|ON|{0}".format(self.laser_power_options.index(self.laser_power.get())))
+    #         self.laser_on = True
+    #
+    # def change_laser_power(self):
+    #     logging.debug("changing laser power to: {0}".format(self.laser_power.get()))
+    #     new_power_level = self.laser_power_options.index(self.laser_power.get())
+    #     if new_power_level != self.laser_power_set:
+    #         self.usb.usb_write("LASER|POWER|{0}".format(new_power_level))
+    #         self.laser_power_set = new_power_level
 
 
 class LightSource(object):
-    def __init__(self, name: str, power_var: tk.StringVar = None, power_options: list=None):
+    def __init__(self, usb: usb_comm.PSoC_USB, name: str,
+                 power_var: tk.StringVar = None, power_options: list=None, power_set: int=0):
+        self.usb = usb
         self.name = name
-        if power_var:
+        if not power_var:
             power_var = tk.StringVar()
         self.power_var = power_var
         self.power_options = power_options
+        self.power_set = power_set  # the current setting of the current to the light
+        self.on = False  # type: Boolean to tell if the device has power to it
+        self.use_flash = False  # flag to indicate if light source should be flashed
 
+    def change_power_level(self, *args):
+        logging.debug("changing {0} power to: {1}".format(self.name, self.power_var.get()))
+        new_power_level = self.power_options.index(self.power_var.get())
+        if new_power_level != self.power_set:
+            self.usb.usb_write("{0}|POWER|{1}".format(self.name, new_power_level))
+            self.power_set = new_power_level
+
+    def toggle(self):
+        logging.debug("{0} power: {1}".format(self.name, self.on))
+        if self.on:
+            logging.debug("Turning {0} off".format(self.name))
+            self.usb.usb_write("{0}|OFF".format(self.name))
+            self.on = False
+        else:
+            logging.debug("Turning {0} on with power {1}".format(self.name, self.power_set))
+            self.usb.usb_write("{0}|ON|{1}".format(self.name, self.power_set))
+            self.on = True
+
+    def set_flash(self, use_flash=False):
+        flash_flag = 0
+        if use_flash:
+            flash_flag = 1
+        self.usb.usb_write("{0}|Flash|{1}".format(self.name, flash_flag))
 
 class CAT4004(LightSource):
-    def __init__(self, name:str, max_power: int = 100):
+    def __init__(self, usb: usb_comm.PSoC_USB, name:str, max_power: int = 100):
         power_options = [max_power/2.**x for x in range(0, 6)]
-        LightSource.__init__(name, power_options=power_options)
+
+        power_options_str = ["{:.0f} mA".format(x) for x in power_options]
+
+        LightSource.__init__(self, usb, name, power_options=power_options_str)
         self.power_var.set(self.power_options[0])
+
+class PWMDimmer(LightSource):
+    def __init__(self, usb: usb_comm.PSoC_USB, name:str, max_power: int = 100,
+                 pwm_period: int=255, pwm_compare=0):
+        power_options = [max_power / 2. ** x for x in range(0, 5)]
+        power_options_str = ["{:.0f} mA".format(x) for x in power_options]
+
+        LightSource.__init__(self, usb, name, power_options=power_options_str)
+
+        self.max_power = max_power
+        self.power_set = self.power_options[0]
+        self.power_var.set(self.power_set)
+        self.pwm_period = pwm_period
+        self.pwm_compare = pwm_compare
+
+    def change_power_level(self, *args):
+        logging.debug("changing {0} power to: {1}".format(self.name, self.power_var.get()))
+        new_power_level = self.power_options.index(self.power_var.get())
+        new_power_value = float(self.power_var.get().split()[0])
+        new_pwm_setting = int((new_power_value / self.max_power) * self.pwm_period)
+        if new_power_level != self.power_set:
+            self.usb.usb_write("{0}|POWER|{1}".format(self.name, str(new_pwm_setting).zfill(3)))
+            self.power_set = new_power_level
+
+    def toggle(self):
+        logging.debug("{0} power: {1}".format(self.name, self.on))
+        if self.on:
+            logging.debug("Turning {0} off".format(self.name))
+            self.usb.usb_write("{0}|OFF".format(self.name))
+            self.on = False
+        else:
+            logging.debug("Turning {0} on with power {1}".format(self.name, self.power_set))
+            self.usb.usb_write("{0}|ON|{1}".format(self.name, str(self.pwm_compare).zfill(3)))
+            self.on = True
