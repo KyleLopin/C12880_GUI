@@ -5,6 +5,7 @@ to a PSoC controller.  The data is saved in the data_class file, pyplot_embed ha
 matplotlib graph embedded into a tk.Frame to display the data and psoc_spectrometer simulates the device. """
 
 # standard libraries
+from collections import OrderedDict
 import logging
 import tkinter as tk
 # installed libraries
@@ -88,12 +89,22 @@ class ButtonFrame(tk.Frame):
         self.device = device  # type: psoc_spectrometer.PSoC
 
         # make all the buttons and parameters
+        # make a seperate frame to isolate the integration time frame
         integration_frame = tk.Frame(self, bd=5, relief=tk.RIDGE)
-        tk.Label(integration_frame, text="Integration time (ms):").pack(side='top', pady=BUTTON_PADY)
+        tk.Label(integration_frame, text="Integration time:").pack(side='top', pady=BUTTON_PADY)
         self.integration_time_var = tk.IntVar()
+
         tk.Spinbox(integration_frame, from_=1, to=1000,
                    textvariable=self.integration_time_var).pack(side='top', pady=BUTTON_PADY)
         self.integration_time_var.set(40)
+
+        self.integration_time_unit = tk.IntVar()
+        units = OrderedDict([(u"\u00B5sec", 1), ("msec", 1000), ("sec", 1000000)])
+
+        for key, value in units.items():
+            tk.Radiobutton(integration_frame, text=key, variable=self.integration_time_unit, value=value).pack(side='left')
+
+        self.integration_time_unit.set(1000)
         integration_frame.pack(side='top', expand=True, fill=tk.X)
 
         # make LED control widgets
@@ -153,7 +164,7 @@ class ButtonFrame(tk.Frame):
     def read_once(self):
         self.read_button.config(state=tk.DISABLED)
 
-        read_message = self.device.read_once(self.integration_time_var.get())
+        read_message = self.device.read_once(self.integration_time_var.get(), self.integration_time_unit.get())
         logging.info("Read message: {0}".format(read_message))
         self.read_button.config(state=tk.ACTIVE)
 

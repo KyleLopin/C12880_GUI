@@ -11,6 +11,7 @@ import struct
 import threading
 import time
 import tkinter as tk
+from tkinter import messagebox
 
 # local files
 import main_gui  # for type hinting
@@ -43,8 +44,8 @@ class PSoC(object):
                               CAT4004(self.usb, "Laser", max_power=100),
                               PWMDimmer(self.usb, "Light 1", max_power=100, pwm_period=32, pwm_compare=32)]
 
-    def read_once(self, integration_time):
-        self.spectrometer.read_once(integration_time)
+    def read_once(self, integration_time, integration_unit):
+        self.spectrometer.read_once(integration_time, integration_unit)
 
     # def read_once(self, integration_time):
     #     try:
@@ -135,24 +136,60 @@ class C12880(BaseSpectrometer):
 
         self.usb = usb
 
-        self.integration_time = 40
+        self.integration_time = 40000
+
+        self.st_clock_period = 24  # cycles / microsecond, make this variable to change
+        self.st_clock_divider = 48  # initial divider value the PSoC is programmed with
+        self.st_pwm_compare = self.calculate_pwm_compare()
+        print('pwm compare: ', self.st_pwm_compare)
         self.init_c12880()
 
     def init_c12880(self):
         self.set_integration_time(self.integration_time)
 
     def set_integration_time(self, time):
-        if self.integration_time < 1 or self.integration_time > 131:
+        if time < 108:
             logging.error("Integration time out of bounds: {0}".format(time))
-        else:
-            self.usb.usb_write("C12880|INTEGRATION|{0}".format(str(time).zfill(3)))
-            self.integration_time = time
+            messagebox.showerror("Error", "Integration time too low")
+            return False
+        elif time > 16250000:
+            logging.error("Integration time out of bounds: {0}".format(time))
+            messagebox.showerror("Error", "Integration time is too high")
+            return False
+        elif time < 60000:
+            self.st_clock_divider = 48  # use lowest setting
+        elif time < 260000:
+            self.st_clock_divider = 96  # 4 usec period
+        elif time < 3000000:
+            self.st_clock_divider = 1200  # use lowest setting
+        elif time < 16000000:
+            self.st_clock_divider = 6000  # use lowest setting
 
-    def read_once(self, integration_time_set):
+        self.integration_time = time
+        self.st_pwm_compare = self.calculate_pwm_compare()
+
+        self.usb.usb_write("C12880|ST_DIVIDER|{0}".format(str(self.st_clock_divider).zfill(5)))
+        self.usb.usb_write("C12880|ST_PERIOD|{0}".format(str(self.st_pwm_compare).zfill(5)))
+
+        # self.usb.usb_write("C12880|INTEGRATION|{0}".format(str(time).zfill(3)))
+        return True
+
+    def calculate_pwm_compare(self):
+        print(self.st_clock_period, self.integration_time, self.st_clock_divider)
+        print(int(self.st_clock_period * self.integration_time / self.st_clock_divider))
+        return int(self.st_clock_period * self.integration_time / self.st_clock_divider)
+
+    def read_once(self, integration_time_set, integration_time_unit):
+        print("unit: ", integration_time_unit)
+        integration_time = integration_time_set * integration_time_unit
+        print("integration time in us: ", integration_time)
         try:
-            self.send_read_message(integration_time_set)
+            sent_read_flag = self.send_read_message(integration_time)
         except:
             return "Failed sending read message"
+
+        if not sent_read_flag:
+            return
 
         try:
             time.sleep(integration_time_set/1000+0.4)  # TODO: make this an after function somehow
@@ -186,9 +223,12 @@ class C12880(BaseSpectrometer):
     def send_read_message(self, integration_time_set):
         logging.info("reading with integration time: {0}".format(integration_time_set))
         if integration_time_set != self.integration_time:
-            self.set_integration_time(integration_time_set)
+            integration_set = self.set_integration_time(integration_time_set)
 
-        self.usb.usb_write("C12880|READ_SINGLE".format())
+        if integration_set:
+            self.usb.usb_write("C12880|READ_SINGLE".format())
+            return True
+        return False
 
     def query_data_readiness(self):
         self.usb.usb_write("C12880|QUERY_RUN")
