@@ -193,6 +193,10 @@ class PSoC_USB(object):
             num_elements = int(len(usb_input) / 2)
             return struct.unpack('<'+'H'*num_elements, usb_input)
             # return convert_uint8_uint16(usb_input)
+        elif encoding == 'uint32':
+            num_elements = int(len(usb_input) / 4)
+            return struct.unpack('<' + 'I' * num_elements, usb_input)
+
         elif encoding == "float32":
             if (len(usb_input) % 4) == 0:
                 # return struct.iter_unpack('f', usb_input)
@@ -205,13 +209,25 @@ class PSoC_USB(object):
         else:  # no encoding so just return raw data
             return usb_input
 
-    def read_all_data(self):
+    def read_single_data(self):
         try:
-            self.usb_write("C12880|EXPORT_DATA")
-            logging.debug("reading all data")
+            self.usb_write("C12880|EXPORT_DATA|SINGLE")
+            logging.debug("reading single data")
             data_packet = []
             for i in range(12):
                 data_packet.extend(self.usb_read_data(num_usb_bytes=48, encoding="uint16"))
+
+            return data_packet
+        except Exception as error:
+            logging.error(error)
+
+    def read_multi_data(self):
+        try:
+            self.usb_write("C12880|EXPORT_DATA|MULTI")
+            logging.debug("reading multi data")
+            data_packet = []
+            for i in range(24):
+                data_packet.extend(self.usb_read_data(num_usb_bytes=48, encoding="uint32"))
 
             return data_packet
         except Exception as error:

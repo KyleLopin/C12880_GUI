@@ -44,8 +44,8 @@ class PSoC(object):
                               CAT4004(self.usb, "Laser", max_power=100),
                               PWMDimmer(self.usb, "Light 1", max_power=100, pwm_period=32, pwm_compare=32)]
 
-    def read_once(self, integration_time, integration_unit):
-        self.spectrometer.read_once(integration_time, integration_unit)
+    def read_once(self, integration_time, integration_unit, num_reads):
+        self.spectrometer.read_once(integration_time, integration_unit, num_reads)
 
     # def read_once(self, integration_time):
     #     try:
@@ -128,9 +128,9 @@ class BaseSpectrometer(object):
         # self.usb = usb_comm.PSoC_USB(self)
 
 
-class C12880(BaseSpectrometer):
+class C12880(object):
     def __init__(self, master: main_gui.SpectrometerGUI, usb: USB):
-        BaseSpectrometer.__init__(self)
+        # BaseSpectrometer.__init__(self)
         self.master = master
         self.reading = None
 
@@ -141,7 +141,6 @@ class C12880(BaseSpectrometer):
         self.st_clock_period = 24  # cycles / microsecond, make this variable to change
         self.st_clock_divider = 48  # initial divider value the PSoC is programmed with
         self.st_pwm_compare = self.calculate_pwm_compare()
-        print('pwm compare: ', self.st_pwm_compare)
         self.init_c12880()
 
     def init_c12880(self):
@@ -175,11 +174,9 @@ class C12880(BaseSpectrometer):
         return True
 
     def calculate_pwm_compare(self):
-        print(self.st_clock_period, self.integration_time, self.st_clock_divider)
-        print(int(self.st_clock_period * self.integration_time / self.st_clock_divider))
         return int(self.st_clock_period * self.integration_time / self.st_clock_divider)
 
-    def read_once(self, integration_time_set, integration_time_unit):
+    def read_once(self, integration_time_set, integration_time_unit, num_reads):
         print("unit: ", integration_time_unit)
         integration_time = integration_time_set * integration_time_unit
         print("integration time in us: ", integration_time)
@@ -205,8 +202,17 @@ class C12880(BaseSpectrometer):
             return "Error with the C12880 device"
 
         try:
-            data = self.usb.read_all_data()
+
+            if num_reads == 1:
+                logging.info("get a single read")
+                data = self.usb.read_single_data()
+            else:
+                logging.info("read {0} times")
+                data = self.usb.read_multi_data()
+
+
             print(data)
+            print(len(data))
             print("integration time: {0}".format(integration_time_set))
             if data:
                 self.master.update_graph(data)
@@ -222,6 +228,7 @@ class C12880(BaseSpectrometer):
 
     def send_read_message(self, integration_time_set):
         logging.info("reading with integration time: {0}".format(integration_time_set))
+        integration_set = True  # assume it has been set previously
         if integration_time_set != self.integration_time:
             integration_set = self.set_integration_time(integration_time_set)
 
@@ -349,6 +356,7 @@ class LightSource(object):
 
 class CAT4004(LightSource):
     def __init__(self, usb: usb_comm.PSoC_USB, name:str, max_power: int = 100):
+
         power_options = [max_power/2.**x for x in range(0, 6)]
 
         power_options_str = ["{:.0f} mA".format(x) for x in power_options]
@@ -357,8 +365,9 @@ class CAT4004(LightSource):
         self.power_var.set(self.power_options[0])
 
 class PWMDimmer(LightSource):
-    def __init__(self, usb: usb_comm.PSoC_USB, name:str, max_power: int = 100,
+    def __init__(self, usb: usb_comm.PSoC_USB, name: str, max_power: int = 100,
                  pwm_period: int=255, pwm_compare=0):
+
         power_options = [max_power / 2. ** x for x in range(0, 5)]
         power_options_str = ["{:.0f} mA".format(x) for x in power_options]
 

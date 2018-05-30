@@ -44,7 +44,9 @@ class SpectrometerGUI(tk.Tk):
 
         # attach the actual device and make an easier to use alias for the
         # self.device = psoc_spectrometer.C12880(self)
+        print('start')
         self.device = psoc_spectrometer.PSoC(self)
+        print('end')
 
         # make the graph frame, the parent class is a tk.Frame
         self.graph = pyplot_embed.SpectroPlotter(main_frame, None)
@@ -89,22 +91,38 @@ class ButtonFrame(tk.Frame):
         self.device = device  # type: psoc_spectrometer.PSoC
 
         # make all the buttons and parameters
-        # make a seperate frame to isolate the integration time frame
+        # make a separate frame to isolate the integration time frame
         integration_frame = tk.Frame(self, bd=5, relief=tk.RIDGE)
-        tk.Label(integration_frame, text="Integration time:").pack(side='top', pady=BUTTON_PADY)
+        tk.Label(integration_frame, text="Integration time:").pack(side=tk.TOP, pady=BUTTON_PADY)
         self.integration_time_var = tk.IntVar()
 
         tk.Spinbox(integration_frame, from_=1, to=1000,
-                   textvariable=self.integration_time_var).pack(side='top', pady=BUTTON_PADY)
+                   textvariable=self.integration_time_var).pack(side=tk.TOP, pady=BUTTON_PADY)
         self.integration_time_var.set(40)
 
         self.integration_time_unit = tk.IntVar()
         units = OrderedDict([(u"\u00B5sec", 1), ("msec", 1000), ("sec", 1000000)])
 
+        unit_frame = tk.Frame(integration_frame)
         for key, value in units.items():
-            tk.Radiobutton(integration_frame, text=key, variable=self.integration_time_unit, value=value).pack(side='left')
-
+            tk.Radiobutton(unit_frame, text=key, variable=self.integration_time_unit, value=value).pack(side=tk.LEFT)
+        unit_frame.pack(side=tk.TOP)
         self.integration_time_unit.set(1000)
+
+        self.num_reads_to_average = tk.IntVar()
+        tk.Spinbox(integration_frame, from_=1, to=20,
+                   textvariable=self.num_reads_to_average).pack(side=tk.TOP, pady=BUTTON_PADY)
+
+        # let the user normalize the data to integration time
+        normalized_flag = tk.IntVar()
+        tk.Checkbutton(integration_frame,
+                       text="Normalize to integration time",
+                       variable=normalized_flag).pack(side=tk.TOP)
+
+        subtraction_flag = tk.IntVar()
+        tk.Checkbutton(integration_frame, text="Subtract background",
+                       variable=subtraction_flag).pack(side=tk.TOP, fill=tk.X)
+
         integration_frame.pack(side='top', expand=True, fill=tk.X)
 
         # make LED control widgets
@@ -161,12 +179,19 @@ class ButtonFrame(tk.Frame):
 
         tk.Button(self, text="Log Error", command=self.debug_comment).pack(side="top", pady=BUTTON_PADY)
 
+        # tk.Button(self, text="Read USB", command=self.read_usb).pack(side="top", pady=BUTTON_PADY)
+
     def read_once(self):
         self.read_button.config(state=tk.DISABLED)
 
-        read_message = self.device.read_once(self.integration_time_var.get(), self.integration_time_unit.get())
+        read_message = self.device.read_once(self.integration_time_var.get(),
+                                             self.integration_time_unit.get(),
+                                             self.num_reads_to_average.get())
         logging.info("Read message: {0}".format(read_message))
         self.read_button.config(state=tk.ACTIVE)
+
+    def read_usb(self):
+        print(self.device.usb.usb_read_data(encoding='string'))
 
     def LED_toggle(self):
         # led_power_index = self.LED_power_options.index(self)
@@ -242,5 +267,5 @@ class StatusFrame(tk.Frame):
 if __name__ == '__main__':
     app = SpectrometerGUI()
     app.title("C12880 Spectrometer")
-    app.geometry("900x650")
+    app.geometry("900x750")
     app.mainloop()
