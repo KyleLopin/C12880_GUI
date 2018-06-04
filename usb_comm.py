@@ -183,7 +183,7 @@ class PSoC_USB(object):
             return None
         try:
             usb_input = self.device.read(endpoint, num_usb_bytes, timeout)  # TODO fix this
-            # print(usb_input)
+            print(usb_input)
         except Exception as error:
             logging.error("Failed data read")
             logging.error("No IN ENDPOINT: %s", error)
@@ -227,6 +227,7 @@ class PSoC_USB(object):
             logging.debug("reading multi data")
             data_packet = []
             for i in range(24):
+                print("i = ", i)
                 data_packet.extend(self.usb_read_data(num_usb_bytes=48, encoding="uint32"))
 
             return data_packet

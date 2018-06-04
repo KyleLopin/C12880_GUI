@@ -23,6 +23,7 @@ __author__ = 'Kyle Vitautas Lopin'
 
 C12880_CLK_SPEED = 500000.
 C12880_CLK_PERIOD = 1. / C12880_CLK_SPEED
+MAX_NUM_READS = 25
 
 # LED_POWER_OPTIONS = ["100 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
 values = [100/2**x for x in range(0, 6)]
@@ -47,46 +48,11 @@ class PSoC(object):
     def read_once(self, integration_time, integration_unit, num_reads):
         self.spectrometer.read_once(integration_time, integration_unit, num_reads)
 
-    # def read_once(self, integration_time):
-    #     try:
-    #         self.send_read_message(integration_time)
-    #     except Exception as e:
-    #         logging.error(e)
-    #         return "Failed sending read message"
-    #
-    #     try:
-    #         time.sleep(integration_time/1000+0.4)  # TODO: make this an after function somehow
-    #         query_message = self.query_data_readiness()
-    #         logging.info("query message: {0}".format(query_message))
-    #     except Exception as expection:
-    #         logging.error(expection)
-    #         return "Failed getting query message"
-    #
-    #     if query_message == "NOT DONE ":
-    #         return "Data still being read"
-    #     elif query_message == "NO DATA  ":
-    #         return "Error with the C12880 device"
-    #
-    #     try:
-    #         data = self.usb.read_all_data()
-    #         print(data)
-    #         print("integration time: {0}".format(integration_time))
-    #         if data:
-    #             self.master.update_graph(data)
-    #     except:
-    #         return "Problem getting data"
-    #
-    #     try:
-    #         self.get_C12880_state()
-    #     except Exception as exception2:
-    #         logging.error(exception2)
-    #         return "Error getting C12880 state"
-    #     return "Successful read"
-
     def send_read_message(self, integration_time_set):
         logging.info("reading with integration time: {0}".format(integration_time_set))
         if integration_time_set != self.integration_time:
             self.set_integration_time(integration_time_set)
+
 
 class USB(object):
     """ But the basic info all the Base PSoC Base color sensors / spectrometers should use """
@@ -145,6 +111,10 @@ class C12880(object):
 
     def init_c12880(self):
         self.set_integration_time(self.integration_time)
+        # self.get_background_values()
+
+    def get_background_values(self):
+        self.read_once(40, 1000, 10, True)
 
     def set_integration_time(self, time):
         if time < 108:
@@ -174,14 +144,17 @@ class C12880(object):
         return True
 
     def calculate_pwm_compare(self):
-        return int(self.st_clock_period * self.integration_time / self.st_clock_divider)
+        clock_period = self.st_clock_divider / self.st_clock_period  # microseconds clock period
+        return int(self.integration_time / clock_period) - 48  # 48 because the C12880 integration time is
+        # ST pin high plus 48 cycles, no extra 1 because PWM is set for less not less than or equal
 
-    def read_once(self, integration_time_set, integration_time_unit, num_reads):
-        print("unit: ", integration_time_unit)
+    def read_once(self, integration_time_set, integration_time_unit, num_reads, background=False):
+
         integration_time = integration_time_set * integration_time_unit
-        print("integration time in us: ", integration_time)
+        print("integration time in us: ", integration_time, integration_time_unit)
+
         try:
-            sent_read_flag = self.send_read_message(integration_time)
+            sent_read_flag = self.send_read_message(integration_time, num_reads, background)
         except:
             return "Failed sending read message"
 
@@ -189,7 +162,9 @@ class C12880(object):
             return
 
         try:
-            time.sleep(integration_time_set/1000+0.4)  # TODO: make this an after function somehow
+            logging.debug("sleeping for {0} seconds".format(num_reads * (integration_time/1000000.+0.1)))
+            time.sleep(num_reads * (integration_time/1000000.+0.4))  # TODO: make this an after function somehow
+
             query_message = self.query_data_readiness()
             logging.info("query message: {0}".format(query_message))
         except Exception as expection:
@@ -200,6 +175,8 @@ class C12880(object):
             return "Data still being read"
         elif query_message == "NO DATA  ":
             return "Error with the C12880 device"
+        elif not query_message:
+            return "No message received"
 
         try:
 
@@ -207,15 +184,20 @@ class C12880(object):
                 logging.info("get a single read")
                 data = self.usb.read_single_data()
             else:
-                logging.info("read {0} times")
+                logging.info("read {0} times".format(num_reads))
                 data = self.usb.read_multi_data()
 
 
             print(data)
             print(len(data))
             print("integration time: {0}".format(integration_time_set))
+            if background:
+                print("got background data:")
+                print(data)
+                self.master.set_background_values(data)
+
             if data:
-                self.master.update_graph(data)
+                self.master.update_graph(data, num_reads)
         except:
             return "Problem getting data"
 
@@ -226,14 +208,24 @@ class C12880(object):
             return "Error getting C12880 state"
         return "Successful read"
 
-    def send_read_message(self, integration_time_set):
+    def send_read_message(self, integration_time_set, num_reads, is_background_measurement=False):
         logging.info("reading with integration time: {0}".format(integration_time_set))
         integration_set = True  # assume it has been set previously
         if integration_time_set != self.integration_time:
             integration_set = self.set_integration_time(integration_time_set)
 
+        if is_background_measurement:
+            self.usb.usb_write("C12880|BACKGROUND")
+            return True
+
         if integration_set:
-            self.usb.usb_write("C12880|READ_SINGLE".format())
+            if num_reads == 1:
+                self.usb.usb_write("C12880|READ_SINGLE".format())
+            elif 1 < num_reads <= MAX_NUM_READS:
+                self.usb.usb_write("C12880|READ_MULTI|{0}".format(str(num_reads).zfill(3)))
+            else:
+                return False
+
             return True
         return False
 

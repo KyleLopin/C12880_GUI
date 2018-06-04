@@ -60,14 +60,22 @@ class SpectrometerGUI(tk.Tk):
         self.status_frame = StatusFrame(self, self.device)
         self.status_frame.pack(side='top', fill=tk.X)
 
-    def update_graph(self, data: list):
+    def update_graph(self, data: list, num_data_reads: int):
         """
         Allow user to call the master class to update the graph for any widget that does not
         have direct access to the graph
 
         :param data:  data to display on y-axis of graph
         """
-        self.graph.update_data(data)
+        logging.debug("updating graph")
+        self.graph.update_data(data, num_data_reads)
+
+    def set_background_values(self, data: list):
+        logging.debug('setting background data values')
+        # self.graph.data.background_data = [x/10. for x in data]
+        self.graph.data.background_count = int(sum(data) / len(data) / 10.0)  # PSoC uses to 10 runs to calculate background
+        logging.debug('set background data value: {0}'.format(self.graph.data.background_count))
+        print('saved background data: {0} |'.format(self.graph.data.background_data))
 
 
 BUTTON_PADY = 7
@@ -109,6 +117,7 @@ class ButtonFrame(tk.Frame):
         unit_frame.pack(side=tk.TOP)
         self.integration_time_unit.set(1000)
 
+        tk.Label(integration_frame, text="Number of samples to average").pack(side=tk.TOP, pady=BUTTON_PADY)
         self.num_reads_to_average = tk.IntVar()
         tk.Spinbox(integration_frame, from_=1, to=20,
                    textvariable=self.num_reads_to_average).pack(side=tk.TOP, pady=BUTTON_PADY)
@@ -119,9 +128,10 @@ class ButtonFrame(tk.Frame):
                        text="Normalize to integration time",
                        variable=normalized_flag).pack(side=tk.TOP)
 
-        subtraction_flag = tk.IntVar()
+        self.subtraction_flag = tk.IntVar()
         tk.Checkbutton(integration_frame, text="Subtract background",
-                       variable=subtraction_flag).pack(side=tk.TOP, fill=tk.X)
+                       variable=self.subtraction_flag,
+                       command=self.set_background).pack(side=tk.TOP, fill=tk.X)
 
         integration_frame.pack(side='top', expand=True, fill=tk.X)
 
@@ -192,6 +202,13 @@ class ButtonFrame(tk.Frame):
 
     def read_usb(self):
         print(self.device.usb.usb_read_data(encoding='string'))
+
+    def set_background(self):
+        self.read_button.config(state=tk.DISABLED)
+        if not self.graph.data.background_count:
+            self.device.spectrometer.get_background_values()
+        self.read_button.config(state=tk.ACTIVE)
+        self.graph.data.use_background = self.subtraction_flag.get()
 
     def LED_toggle(self):
         # led_power_index = self.LED_power_options.index(self)

@@ -19,31 +19,54 @@ __author__ = 'Kyle V. Lopin'
 class SpectrometerData(object):
     def __init__(self, wavelengths):
         self.current_data = None
+        self.background_count = None
+        self.use_background = False
         self.wavelengths = wavelengths
+        self.num_reads = 1
 
-    def update_data(self, data):
-        self.current_data = data
+    def update_data(self, data, num_data_reads):
+        print("1222222222222222222223333333333333333333")
+        print(data)
+        print(num_data_reads)
+        self.num_reads = num_data_reads
+        if self.use_background:
+            logging.debug("using background data")
+            self.current_data = [(x - self.background_count) / num_data_reads for x in data]
+        else:
+            logging.debug("not using background data")
+            self.current_data = [x / num_data_reads for x in data]
+        logging.debug("test2")
+        print("/44444444444444444444444444")
+        print("current data: ", self.current_data)
 
     def save_data(self):
-        SaveTopLevel(self.wavelengths, self.current_data)
+        SaveTopLevel(self.wavelengths, self.current_data, self.num_reads)
 
 
 class SaveTopLevel(tk.Toplevel):
-    def __init__(self, wavelength_data, light_data):
+    def __init__(self, wavelength_data, light_data, num_reads):
         tk.Toplevel.__init__(self, master=None)
         self.geometry('400x300')
         self.title("Save data")
         self.data_string = tk.StringVar()
 
-        Entry_str = "Wavelengths: {0}\nCounts: {1}".format(wavelength_data, light_data)
-
         self.data_string = "Wavelength, counts\n"
         for i, _data in enumerate(wavelength_data):
-            self.data_string += "{0:.2f}, {1:d}\n".format(_data, light_data[i])
 
-        text_box = tk.Text(self, width=40, height=8)
+            if num_reads == 1:
+                self.data_string += "{0:.2f}, {1:d}\n".format(_data, int(light_data[i]))
+            else:
+                self.data_string += "{0:.2f}, {0:.2f}\n".format(_data, light_data[i])
+
+        text_frame = tk.Frame(self)
+        text_frame.pack(side='top')
+        text_box = tk.Text(text_frame, width=40, height=8)
         text_box.insert(tk.END, self.data_string)
-        text_box.pack()
+        text_box.pack(side='left')
+
+        scrollbar = tk.Scrollbar(text_frame, command=text_box.yview)
+        scrollbar.pack(side='left', fill=tk.Y, expand=True)
+        text_box['yscrollcommand'] = scrollbar.set
 
         tk.Label(self, text="Comments:").pack(side='top', pady=6)
 

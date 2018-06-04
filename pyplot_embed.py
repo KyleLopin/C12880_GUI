@@ -62,25 +62,31 @@ class SpectroPlotter(tk.Frame):
         self.axis.set_xlim([300, 850])
         self.axis.set_xlabel("wavelength (nm)")
 
-        self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])
+        self.axis.set_ylim([-200, COUNT_SCALE[self.scale_index]])
         # self.axis.set_ylabel(r'$\mu$W/cm$^2$')
         self.axis.set_ylabel('counts')
         self.lines = None
 
-    def update_data(self, new_count_data=None):
+    def update_data(self, new_count_data=None, num_data_reads: int = 1):
         logging.debug("updating data")
         if new_count_data:
-            self.data.update_data(new_count_data)
+            logging.debug("updating data 2")
+            print(num_data_reads)
+            print(new_count_data)
+            self.data.update_data(new_count_data, num_data_reads)
+            print("////////////////////////////////////////")
+            logging.debug("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
+            print(self.data.current_data)
         else:
             self.data.set_data_type()
         display_data = self.data.current_data
-
+        print("============= ", max(display_data))
         while max(display_data) > COUNT_SCALE[self.scale_index]:
             self.scale_index += 1
-            self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])
+            self.axis.set_ylim([-100, COUNT_SCALE[self.scale_index]])
         while (self.scale_index >= 1) and (max(display_data) < COUNT_SCALE[self.scale_index-1]):
             self.scale_index -= 1
-            self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])
+            self.axis.set_ylim([-100, COUNT_SCALE[self.scale_index]])
         if self.lines:
             self.lines.set_ydata(display_data)
         else:
