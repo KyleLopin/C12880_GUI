@@ -27,12 +27,10 @@ MAX_NUM_READS = 25
 
 # LED_POWER_OPTIONS = ["100 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
 values = [100/2**x for x in range(0, 6)]
-print(values)
+
 LED_POWER_OPTIONS = ["80 mA", "50 mA", "25 mA", "12.5 mA", "6.25 mA", "3.1 mA"]
 values.reverse()
 LED_POWER_OPTIONS = ["{:.0f} mA".format(x) for x in values]
-print("LED Options")
-print(LED_POWER_OPTIONS)
 
 
 class PSoC(object):
@@ -151,7 +149,6 @@ class C12880(object):
     def read_once(self, integration_time_set, integration_time_unit, num_reads, background=False):
 
         integration_time = integration_time_set * integration_time_unit
-        print("integration time in us: ", integration_time, integration_time_unit)
 
         try:
             sent_read_flag = self.send_read_message(integration_time, num_reads, background)
@@ -187,13 +184,7 @@ class C12880(object):
                 logging.info("read {0} times".format(num_reads))
                 data = self.usb.read_multi_data()
 
-
-            print(data)
-            print(len(data))
-            print("integration time: {0}".format(integration_time_set))
             if background:
-                print("got background data:")
-                print(data)
                 self.master.set_background_values(data)
 
             if data:
@@ -237,7 +228,6 @@ class C12880(object):
         self.usb.usb_write("C12880|DEBUG")
         time.sleep(0.2)
         data = self.usb.usb_read_data(11)
-        print(data)
         data = self.convert_C12880_debug_values(data)
         data_struct = {}
         data_struct['TRG'] = data[0]
@@ -247,7 +237,6 @@ class C12880(object):
         data_struct['dma count'] = data[4]
         data_struct['EoS status'] = data[5]
 
-        print(data_struct)
         if not os.path.exists('log/'):
             os.makedirs('log/')
 

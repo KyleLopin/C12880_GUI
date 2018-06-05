@@ -183,7 +183,7 @@ class PSoC_USB(object):
             return None
         try:
             usb_input = self.device.read(endpoint, num_usb_bytes, timeout)  # TODO fix this
-            print(usb_input)
+            # print(usb_input)
         except Exception as error:
             logging.error("Failed data read")
             logging.error("No IN ENDPOINT: %s", error)
@@ -227,7 +227,6 @@ class PSoC_USB(object):
             logging.debug("reading multi data")
             data_packet = []
             for i in range(24):
-                print("i = ", i)
                 data_packet.extend(self.usb_read_data(num_usb_bytes=48, encoding="uint32"))
 
             return data_packet
@@ -274,7 +273,6 @@ class ThreadedUSBDataCollector(threading.Thread):
             else:  # the main program wants to stop the program
                 self.termination_flag = True
         logging.debug("exiting data thread call: {0}".format(self.termination_flag, hex(id(self.termination_flag))))
-        print(hex(id(self.termination_flag)))
         self.data_event.set()  # let the main program exit the data_read wait loop
 
     def stop_running(self):

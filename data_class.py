@@ -25,9 +25,6 @@ class SpectrometerData(object):
         self.num_reads = 1
 
     def update_data(self, data, num_data_reads):
-        print("1222222222222222222223333333333333333333")
-        print(data)
-        print(num_data_reads)
         self.num_reads = num_data_reads
         if self.use_background:
             logging.debug("using background data")
@@ -36,8 +33,6 @@ class SpectrometerData(object):
             logging.debug("not using background data")
             self.current_data = [x / num_data_reads for x in data]
         logging.debug("test2")
-        print("/44444444444444444444444444")
-        print("current data: ", self.current_data)
 
     def save_data(self):
         SaveTopLevel(self.wavelengths, self.current_data, self.num_reads)

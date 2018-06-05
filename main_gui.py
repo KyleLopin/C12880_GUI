@@ -44,9 +44,7 @@ class SpectrometerGUI(tk.Tk):
 
         # attach the actual device and make an easier to use alias for the
         # self.device = psoc_spectrometer.C12880(self)
-        print('start')
         self.device = psoc_spectrometer.PSoC(self)
-        print('end')
 
         # make the graph frame, the parent class is a tk.Frame
         self.graph = pyplot_embed.SpectroPlotter(main_frame, None)
@@ -75,7 +73,6 @@ class SpectrometerGUI(tk.Tk):
         # self.graph.data.background_data = [x/10. for x in data]
         self.graph.data.background_count = int(sum(data) / len(data) / 10.0)  # PSoC uses to 10 runs to calculate background
         logging.debug('set background data value: {0}'.format(self.graph.data.background_count))
-        print('saved background data: {0} |'.format(self.graph.data.background_data))
 
 
 BUTTON_PADY = 7
@@ -123,15 +120,15 @@ class ButtonFrame(tk.Frame):
                    textvariable=self.num_reads_to_average).pack(side=tk.TOP, pady=BUTTON_PADY)
 
         # let the user normalize the data to integration time
-        normalized_flag = tk.IntVar()
-        tk.Checkbutton(integration_frame,
-                       text="Normalize to integration time",
-                       variable=normalized_flag).pack(side=tk.TOP)
-
-        self.subtraction_flag = tk.IntVar()
-        tk.Checkbutton(integration_frame, text="Subtract background",
-                       variable=self.subtraction_flag,
-                       command=self.set_background).pack(side=tk.TOP, fill=tk.X)
+        # normalized_flag = tk.IntVar()
+        # tk.Checkbutton(integration_frame,
+        #                text="Normalize to integration time",
+        #                variable=normalized_flag).pack(side=tk.TOP)
+        #
+        # self.subtraction_flag = tk.IntVar()
+        # tk.Checkbutton(integration_frame, text="Subtract background",
+        #                variable=self.subtraction_flag,
+        #                command=self.set_background).pack(side=tk.TOP, fill=tk.X)
 
         integration_frame.pack(side='top', expand=True, fill=tk.X)
 
@@ -141,7 +138,6 @@ class ButtonFrame(tk.Frame):
         buttons = {}
         for light_source in self.device.light_sources:
             buttons[light_source.name] = frameworks.LightButtons(lighting_frame, light_source).pack(side='top')
-        print(buttons)
 
         # tk.Label(lighting_frame, text="LED power (mA):").pack(side='top', pady=BUTTON_PADY)
         # self.LED_power_options = self.device.led_power_options

@@ -18,7 +18,7 @@ __author__ = 'Kyle Vitautas Lopin'
 
 C12880_SERIAL = "17D00042"
 pixel = range(1, 289)
-print(pixel)
+
 A_0 = 3.056675765e+2
 B_1 = 2.718285424
 B_2 = -1.550742501e-3
@@ -32,11 +32,8 @@ HIGHEST_WAVELENGTH = 850
 NUM_PIXELS = 288
 WAVELENGTH_INCREMENT = (HIGHEST_WAVELENGTH - LOWEST_WAVELENGTH) / NUM_PIXELS
 WAVELENGTHS = [LOWEST_WAVELENGTH + x*WAVELENGTH_INCREMENT for x in range(NUM_PIXELS)]
-print(WAVELENGTHS)
-print([x for x in range(1, 289)])
+
 WAVELENGTHS = [A_0+B_1*x+B_2*x**2+B_3*x**3+B_4*x**4+B_5*x**5 for x in range(1, 289)]
-print(WAVELENGTHS)
-print(len(WAVELENGTHS))
 
 
 class SpectroPlotter(tk.Frame):
@@ -68,25 +65,17 @@ class SpectroPlotter(tk.Frame):
         self.lines = None
 
     def update_data(self, new_count_data=None, num_data_reads: int = 1):
-        logging.debug("updating data")
         if new_count_data:
-            logging.debug("updating data 2")
-            print(num_data_reads)
-            print(new_count_data)
             self.data.update_data(new_count_data, num_data_reads)
-            print("////////////////////////////////////////")
-            logging.debug("[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[")
-            print(self.data.current_data)
         else:
             self.data.set_data_type()
         display_data = self.data.current_data
-        print("============= ", max(display_data))
         while max(display_data) > COUNT_SCALE[self.scale_index]:
             self.scale_index += 1
-            self.axis.set_ylim([-100, COUNT_SCALE[self.scale_index]])
+            self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])
         while (self.scale_index >= 1) and (max(display_data) < COUNT_SCALE[self.scale_index-1]):
             self.scale_index -= 1
-            self.axis.set_ylim([-100, COUNT_SCALE[self.scale_index]])
+            self.axis.set_ylim([0, COUNT_SCALE[self.scale_index]])
         if self.lines:
             self.lines.set_ydata(display_data)
         else:
